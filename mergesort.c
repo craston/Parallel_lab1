@@ -61,18 +61,85 @@ long long unsigned int average (long long unsigned int *exps)
 
   return s / (NBEXPERIMENTS-2) ;
 }
+/* 
+   Merge two sorted chunks of array T!
+   The two chunks are of size size
+   First chunck starts at T[0], second chunck starts at T[size]
+*/
+void merge (int *T, const int size)
+{
+  int *X = (int *) malloc (2 * size * sizeof(int)) ;
+  
+  int i = 0 ;
+  int j = size ;
+  int k = 0 ;
+  
+  while ((i < size) && (j < 2*size))
+    {
+      if (T[i] < T [j])
+	{
+	  X [k] = T [i] ;
+	  i = i + 1 ;
+	}
+      else
+	{
+	  X [k] = T [j] ;
+	  j = j + 1 ;
+	}
+      k = k + 1 ;
+    }
 
+  if (i < size)
+    {
+      for (; i < size; i++, k++)
+	{
+	  X [k] = T [i] ;
+	}
+    }
+  else
+    {
+      for (; j < 2*size; j++, k++)
+	{
+	  X [k] = T [j] ;
+	}
+    }
+  
+  memcpy (T, X, 2*size*sizeof(int)) ;
+  free (X) ;
+  
+  return ;
+}
 
 
 void merge_sort (int *T, const int size)
 {
     /* TODO: sequential version of the merge sort algorithm */
+   if(size >= 2){
+    	merge_sort(&T[0], size/2);
+    	merge_sort(&T[size/2], size/2);
+    	merge(T, size/2);
+    }
 }
 
 
 void parallel_merge_sort (int *T, const int size)
 {
-    /* TODO: sequential version of the merge sort algorithm */
+    /* TODO: parallel version of the merge sort algorithm */
+    if(size >= 10){
+    	#pragma omp parallel 
+    	#pragma omp single nowait
+    	{
+			#pragma omp task
+			parallel_merge_sort(&T[0], size/2);
+			#pragma omp task 
+			parallel_merge_sort(&T[size/2], size/2);
+			#pragma omp taskwait
+			merge(T, size/2);
+		}
+    }
+    else{
+    	merge_sort(T, size);
+    }
 }
 
 

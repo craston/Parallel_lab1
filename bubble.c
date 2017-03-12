@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include<omp.h>
-
+#include<stdbool.h>
 #include <x86intrin.h>
+#include <sched.h>
+#include <stdlib.h>
 
 #define NBEXPERIMENTS    7
 static long long unsigned int experiments [NBEXPERIMENTS] ;
@@ -97,49 +99,54 @@ void parallel_bubble_sort (int *T, const int size)
 {
     /* TODO: parallel implementation of bubble sort */
     register unsigned int i ;
-     register unsigned int j ;
-    int temp;
-    int flag1 = 1;
-    int flag2 = 0;
-    int th = omp_get_max_threads ();
-    
-    #pragma omp parallel for schedule(static) private(i, j,temp) 
-    for(j = 0; j < N ; j += N/th){
-        flag1 = 1;
-        while (flag1){
-            flag2 =  0;        
-            for(i =j; i < j+ N/th-1; i++){
-                if(T[i] > T[i+1]){
-                    temp = T[i];
-                    T[i] = T[i+1];
-                    T[i+1] = temp;
-                    flag2 = 1;
-            }
-        }
-        //#pragma omp taskwait
-        if (flag2 == 0)
-            flag1 = 0;
-        }
-    }
-    
-    for(j = 0; j < N ; j += N/th){
-        if(T[j]> T[j +N/th]){
-            for(i =j; i < j+ N/th-1; i++){
-                temp = T[j+i];
-                T[j+i] = T[j+N/th+i];
-                T[j+N/th+i] = temp;
-            }
-        }
-    }
+	register unsigned int j ;
+	register unsigned int k ;
+	register int temp;
+	register int temp2;
+	register unsigned int flag2 = 1;
+	register unsigned int flag3 = 1;
+	register unsigned int th = omp_get_max_threads ();
     //print_array(T);
+    while(flag3 == 1  || flag2 ==1){
+    	flag3 = 0;
+		flag2 = 0;
+		#pragma omp parallel for schedule(guided) private(i,j,temp) reduction (||:flag3)
+		for(j = 0; j < N; j += N/th){
+			//printf("Thread %d has completed iteration %d on CPU %d \n", omp_get_thread_num( ), j, sched_getcpu());
+		    //printf ("flag1 = %d \n", flag1);
+	    	for(i =j; i <j+ N/th; i++){
+	            if(T[i] > T[i+1]){
+	                temp = T[i];
+	                T[i] = T[i+1];
+	                T[i+1] = temp;
+	                flag3 =  1;
+	        	}
+	    	}
+	    	//print_array(T);
+	    }
+	   
+    	for(k = 0; k < N ; k += N/th){
+    		if(T[k + N/th -1] > T[k + N/th]){
+				temp2 = T[k + N/th - 1];
+				T[k + N/th -1] = T[k + N/th];
+				T[k + N/th] = temp2;	
+				flag2 =  1;	
+			}
+		}		
+		//print_array(T);
+		
+	}
+	
+
   return ;
+
 }
 
 
 int main (int argc, char **argv)
 {
   unsigned long long int start, end, residu ;
-  unsigned long long int av ;
+  unsigned long long int av1,av2 ;
   unsigned int exp ;
 
   /* the program takes one parameter N which is the size of the array to
@@ -178,13 +185,12 @@ int main (int argc, char **argv)
 	  fprintf(stderr, "SERIAL ERROR: the array is not properly sorted\n") ;
 	  exit (-1) ;
 	}
-	else
-        fprintf(stderr, "SERIAL sorted \n");
+	        //fprintf(stderr, "SERIAL sorted \n");
     }
 
-  av = average (experiments) ;  
+  av1 = average (experiments) ;  
 
-  printf ("\n bubble serial \t\t\t %Ld cycles\n\n", av-residu) ;
+  printf ("\n bubble serial %Ld cycles\n", av1-residu) ;
 
   
   for (exp = 0 ; exp < NBEXPERIMENTS; exp++)
@@ -209,12 +215,12 @@ int main (int argc, char **argv)
         //print_array(X);
         }
     }
-    print_array(X);
-    
-  av = average (experiments) ;  
-  printf ("\n bubble parallel \t %Ld cycles\n\n", av-residu) ;
+   
+  av2 = average (experiments) ;  
+  printf ("\n bubble parallel %Ld cycles\n", av2-residu) ;
+  printf("Ratio = serial/parallel = %f\n", (double)av1/av2);
 
   
-  // print_array (X) ;
+  //print_array (X) ;
 
 }
